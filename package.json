@@ -80,5 +80,8 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "dependencies": {
+    "intl-messageformat": "^11.1.1"
   }
 }

@@ -1,0 +1,6 @@
+{
+  "greeting": "Merhaba {name}!",
+  "items": "{count, plural, one {# öğe} other {# öğe}}",
+  "goodbye": "Hoşça kal!",
+  "welcome": "Uygulamamıza hoş geldiniz"
+}

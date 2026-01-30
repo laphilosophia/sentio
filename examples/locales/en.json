@@ -1,0 +1,6 @@
+{
+  "greeting": "Hello {name}!",
+  "items": "{count, plural, one {# item} other {# items}}",
+  "goodbye": "Goodbye!",
+  "welcome": "Welcome to our application"
+}

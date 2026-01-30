@@ -8,6 +8,7 @@
  */
 
 import { interpolate } from './interpolate.js'
+import { createICUParser, isICUMessage } from './parser.js'
 import { buildFallbackChain } from './resolve.js'
 import type { MessageLoader, Messages } from './types.js'
 
@@ -37,6 +38,8 @@ export interface I18n {
   formatDate: (date: Date, style?: 'short' | 'medium' | 'long' | 'full') => string
   /** Format a number according to current locale */
   formatNumber: (value: number, style?: 'decimal' | 'currency' | 'percent') => string
+  /** Format a list according to current locale */
+  formatList: (items: string[], style?: 'conjunction' | 'disjunction' | 'unit') => string
   /** Get current locale */
   getLocale: () => string
   /** Set current locale (does not load messages) */
@@ -103,6 +106,9 @@ export function createI18n(config: I18nConfig): I18n {
   const loader = config.loader
   const onMissingKey = config.onMissingKey
 
+  // Instance-scoped ICU parser (no global state)
+  const icuParser = createICUParser()
+
   // Internal mutable messages store
   const loadedMessages: Messages = config.messages ? { ...config.messages } : {}
 
@@ -113,6 +119,11 @@ export function createI18n(config: I18nConfig): I18n {
       onMissingKey?.(key, currentLocale)
       // Return key as fallback for missing translations
       return key
+    }
+
+    // Check if message contains ICU syntax
+    if (params && isICUMessage(message)) {
+      return icuParser.format(message, currentLocale, params)
     }
 
     if (params) {
@@ -188,10 +199,19 @@ export function createI18n(config: I18nConfig): I18n {
     return { ...loadedMessages }
   }
 
+  function formatList(
+    items: string[],
+    style: 'conjunction' | 'disjunction' | 'unit' = 'conjunction'
+  ): string {
+    const formatter = new Intl.ListFormat(currentLocale, { style: 'long', type: style })
+    return formatter.format(items)
+  }
+
   return {
     t,
     formatDate,
     formatNumber,
+    formatList,
     getLocale,
     setLocale,
     getFallback,
