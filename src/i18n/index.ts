@@ -10,7 +10,7 @@
 import { interpolate } from './interpolate.js'
 import { createICUParser, isICUMessage } from './parser.js'
 import { buildFallbackChain } from './resolve.js'
-import type { I18nHooks, MessageLoader, Messages } from './types.js'
+import type { I18nHooks, LocaleMessages, MessageLoader, Messages } from './types.js'
 
 /**
  * Configuration for i18n instance
@@ -28,6 +28,20 @@ export interface I18nConfig {
   onMissingKey?: (key: string, locale: string) => void
   /** Telemetry hooks for observability */
   hooks?: I18nHooks
+  /** Namespace loader for lazy loading by domain */
+  namespaceLoader?: NamespaceLoader
+}
+
+/**
+ * Namespace loader interface for lazy loading translations by domain
+ */
+export interface NamespaceLoader {
+  /**
+   * Load messages for a specific namespace and locale
+   * @param namespace - Namespace/domain (e.g., 'admin', 'checkout')
+   * @param locale - Locale code
+   */
+  load(namespace: string, locale: string): Promise<LocaleMessages>
 }
 
 /**
@@ -54,6 +68,10 @@ export interface I18n {
   isLoaded: (locale: string) => boolean
   /** Get all loaded messages */
   getMessages: () => Messages
+  /** Load a namespace for current locale */
+  loadNamespace: (namespace: string) => Promise<void>
+  /** Check if a namespace is loaded for current locale */
+  isNamespaceLoaded: (namespace: string) => boolean
 }
 
 /**
@@ -106,8 +124,12 @@ export function createI18n(config: I18nConfig): I18n {
   let currentLocale = config.locale
   const fallbackLocale = config.fallback
   const loader = config.loader
+  const namespaceLoader = config.namespaceLoader
   const onMissingKey = config.onMissingKey
   const hooks = config.hooks ?? {}
+
+  // Track loaded namespaces per locale: Map<locale, Set<namespace>>
+  const loadedNamespaces = new Map<string, Set<string>>()
 
   // Instance-scoped ICU parser (no global state)
   const icuParser = createICUParser()
@@ -220,6 +242,38 @@ export function createI18n(config: I18nConfig): I18n {
     return formatter.format(items)
   }
 
+  async function loadNamespace(namespace: string): Promise<void> {
+    const localeNamespaces = loadedNamespaces.get(currentLocale) ?? new Set()
+
+    // Already loaded
+    if (localeNamespaces.has(namespace)) {
+      return
+    }
+
+    if (!namespaceLoader) {
+      throw new Error(`No namespaceLoader configured`)
+    }
+
+    const start = performance.now()
+    const messages = await namespaceLoader.load(namespace, currentLocale)
+
+    // Merge into loadedMessages under current locale
+    loadedMessages[currentLocale] = {
+      ...loadedMessages[currentLocale],
+      ...messages,
+    }
+
+    localeNamespaces.add(namespace)
+    loadedNamespaces.set(currentLocale, localeNamespaces)
+
+    const duration = performance.now() - start
+    hooks.onLoad?.(`${currentLocale}:${namespace}`, duration)
+  }
+
+  function isNamespaceLoaded(namespace: string): boolean {
+    return loadedNamespaces.get(currentLocale)?.has(namespace) ?? false
+  }
+
   return {
     t,
     formatDate,
@@ -231,6 +285,8 @@ export function createI18n(config: I18nConfig): I18n {
     loadLocale,
     isLoaded,
     getMessages,
+    loadNamespace,
+    isNamespaceLoaded,
   }
 }
 
@@ -242,6 +298,7 @@ export type {
   ApiLoaderConfig,
   CachedLoaderConfig,
   CacheStorage,
+  I18nHooks,
   LocaleMessages,
   MessageLoader,
 } from './types.js'
