@@ -45,33 +45,15 @@ export function createIdGenerator(): IdGenerator {
   }
 }
 
-/**
- * Counter for unique ID generation
- * @deprecated Use createIdGenerator() for instance-scoped IDs
- */
-let idCounter = 0
+// Internal default generator for convenience functions
+const defaultGenerator = createIdGenerator()
 
 /**
- * Generate a unique ID
- *
- * @deprecated Use createIdGenerator().generate() for multi-instance safety
- *
- * @example
- * ```typescript
- * const id = generateId('tooltip') // 'tooltip-1'
- * const id2 = generateId('tooltip') // 'tooltip-2'
- * ```
+ * Generate a unique ID using the default generator
+ * For multi-instance scenarios, use createIdGenerator() instead
  */
-export function generateId(prefix = 'sentio'): string {
-  return `${prefix}-${++idCounter}`
-}
-
-/**
- * Reset ID counter (for testing)
- * @deprecated Use createIdGenerator().reset() for instance-scoped reset
- */
-export function resetIdCounter(): void {
-  idCounter = 0
+function generateId(prefix = 'sentio'): string {
+  return defaultGenerator.generate(prefix)
 }
 
 /**

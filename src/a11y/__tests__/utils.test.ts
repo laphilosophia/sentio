@@ -1,40 +1,50 @@
 /**
  * @vitest-environment jsdom
  */
-import { beforeEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   createFormFieldAssociation,
   createIdAssociation,
-  generateId,
+  createIdGenerator,
   removeAriaReference,
-  resetIdCounter,
 } from '../ids'
 
-describe('generateId', () => {
-  beforeEach(() => {
-    resetIdCounter()
-  })
-
+describe('createIdGenerator', () => {
   it('generates sequential IDs with default prefix', () => {
-    expect(generateId()).toBe('sentio-1')
-    expect(generateId()).toBe('sentio-2')
-    expect(generateId()).toBe('sentio-3')
+    const gen = createIdGenerator()
+    expect(gen.generate()).toBe('sentio-1')
+    expect(gen.generate()).toBe('sentio-2')
+    expect(gen.generate()).toBe('sentio-3')
   })
 
   it('generates IDs with custom prefix', () => {
-    expect(generateId('tooltip')).toBe('tooltip-1')
-    expect(generateId('modal')).toBe('modal-2')
+    const gen = createIdGenerator()
+    expect(gen.generate('tooltip')).toBe('tooltip-1')
+    expect(gen.generate('modal')).toBe('modal-2')
+  })
+
+  it('each generator has independent counter', () => {
+    const gen1 = createIdGenerator()
+    const gen2 = createIdGenerator()
+
+    expect(gen1.generate('a')).toBe('a-1')
+    expect(gen2.generate('b')).toBe('b-1')
+    expect(gen1.generate('a')).toBe('a-2')
+  })
+
+  it('reset clears the counter', () => {
+    const gen = createIdGenerator()
+    gen.generate()
+    gen.generate()
+    gen.reset()
+    expect(gen.generate()).toBe('sentio-1')
   })
 })
 
 describe('createIdAssociation', () => {
-  beforeEach(() => {
-    resetIdCounter()
-  })
-
   it('creates association with generated ID', () => {
     const assoc = createIdAssociation('test')
-    expect(assoc.id).toBe('test-1')
+    expect(assoc.id).toMatch(/^test-\d+$/)
   })
 
   it('setId applies ID to element', () => {
@@ -43,7 +53,7 @@ describe('createIdAssociation', () => {
 
     assoc.setId(element)
 
-    expect(element.getAttribute('id')).toBe('tooltip-1')
+    expect(element.getAttribute('id')).toBe(assoc.id)
   })
 
   it('setReference applies aria attribute to element', () => {
@@ -52,7 +62,7 @@ describe('createIdAssociation', () => {
 
     assoc.setReference(element, 'aria-describedby')
 
-    expect(element.getAttribute('aria-describedby')).toBe('desc-1')
+    expect(element.getAttribute('aria-describedby')).toBe(assoc.id)
   })
 
   it('setReference appends to existing IDs', () => {
@@ -62,7 +72,7 @@ describe('createIdAssociation', () => {
 
     assoc.setReference(element, 'aria-describedby')
 
-    expect(element.getAttribute('aria-describedby')).toBe('existing-id desc-1')
+    expect(element.getAttribute('aria-describedby')).toBe(`existing-id ${assoc.id}`)
   })
 
   it('setReference does not duplicate IDs', () => {
@@ -72,7 +82,7 @@ describe('createIdAssociation', () => {
     assoc.setReference(element, 'aria-describedby')
     assoc.setReference(element, 'aria-describedby')
 
-    expect(element.getAttribute('aria-describedby')).toBe('desc-1')
+    expect(element.getAttribute('aria-describedby')).toBe(assoc.id)
   })
 
   it('link connects source and target', () => {
@@ -82,23 +92,19 @@ describe('createIdAssociation', () => {
 
     assoc.link(trigger, tooltip, 'aria-describedby')
 
-    expect(tooltip.getAttribute('id')).toBe('tooltip-1')
-    expect(trigger.getAttribute('aria-describedby')).toBe('tooltip-1')
+    expect(tooltip.getAttribute('id')).toBe(assoc.id)
+    expect(trigger.getAttribute('aria-describedby')).toBe(assoc.id)
   })
 })
 
 describe('createFormFieldAssociation', () => {
-  beforeEach(() => {
-    resetIdCounter()
-  })
-
   it('generates all field IDs', () => {
     const field = createFormFieldAssociation('email')
 
-    expect(field.inputId).toBe('email-input-1')
-    expect(field.labelId).toBe('email-label-2')
-    expect(field.descriptionId).toBe('email-desc-3')
-    expect(field.errorId).toBe('email-error-4')
+    expect(field.inputId).toMatch(/^email-input-\d+$/)
+    expect(field.labelId).toMatch(/^email-label-\d+$/)
+    expect(field.descriptionId).toMatch(/^email-desc-\d+$/)
+    expect(field.errorId).toMatch(/^email-error-\d+$/)
   })
 
   it('linkLabel connects label and input', () => {
@@ -108,9 +114,9 @@ describe('createFormFieldAssociation', () => {
 
     field.linkLabel(label, input)
 
-    expect(label.getAttribute('id')).toBe('email-label-2')
-    expect(input.getAttribute('id')).toBe('email-input-1')
-    expect(label.getAttribute('for')).toBe('email-input-1')
+    expect(label.getAttribute('id')).toBe(field.labelId)
+    expect(input.getAttribute('id')).toBe(field.inputId)
+    expect(label.getAttribute('for')).toBe(field.inputId)
   })
 
   it('linkDescription connects description to input', () => {
@@ -120,8 +126,8 @@ describe('createFormFieldAssociation', () => {
 
     field.linkDescription(desc, input)
 
-    expect(desc.getAttribute('id')).toBe('email-desc-3')
-    expect(input.getAttribute('aria-describedby')).toBe('email-desc-3')
+    expect(desc.getAttribute('id')).toBe(field.descriptionId)
+    expect(input.getAttribute('aria-describedby')).toBe(field.descriptionId)
   })
 
   it('linkError connects error and marks input invalid', () => {
@@ -131,8 +137,8 @@ describe('createFormFieldAssociation', () => {
 
     field.linkError(error, input)
 
-    expect(error.getAttribute('id')).toBe('email-error-4')
-    expect(input.getAttribute('aria-errormessage')).toBe('email-error-4')
+    expect(error.getAttribute('id')).toBe(field.errorId)
+    expect(input.getAttribute('aria-errormessage')).toBe(field.errorId)
     expect(input.getAttribute('aria-invalid')).toBe('true')
   })
 })

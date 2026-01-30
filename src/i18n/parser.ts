@@ -92,36 +92,3 @@ export function createICUParser(maxCacheSize = 1000): ICUParser {
     clearCache,
   }
 }
-
-// --- Legacy API (for backward compatibility) ---
-// These functions create a lazily-initialized singleton parser
-// Consider using createICUParser() for better control
-
-let defaultParser: ICUParser | null = null
-
-function getDefaultParser(): ICUParser {
-  if (!defaultParser) {
-    defaultParser = createICUParser()
-  }
-  return defaultParser
-}
-
-/**
- * Format an ICU message with parameters (uses default parser)
- * @deprecated Use createICUParser().format() for memory-safe usage
- */
-export function formatICU(
-  message: string,
-  locale: string,
-  params: Record<string, unknown> = {}
-): string {
-  return getDefaultParser().format(message, locale, params)
-}
-
-/**
- * Clear the default parser's cache
- * @deprecated Use createICUParser().clearCache() for scoped control
- */
-export function clearMessageCache(): void {
-  defaultParser?.clearCache()
-}
