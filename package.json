@@ -1,6 +1,6 @@
 {
   "name": "sentio",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Headless i18n + a11y runtime for deterministic UI platforms",
   "type": "module",
   "main": "dist/index.js",

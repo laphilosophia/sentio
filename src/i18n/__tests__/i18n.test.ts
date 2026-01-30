@@ -7,11 +7,23 @@ describe('createI18n', () => {
       greeting: 'Hello {name}!',
       simple: 'Hello World',
       items: 'You have {count} items',
+      user: {
+        profile: {
+          name: 'Profile Name',
+          bio: 'User biography',
+        },
+      },
     },
     tr: {
       greeting: 'Merhaba {name}!',
       simple: 'Merhaba Dünya',
       items: '{count} öğeniz var',
+      user: {
+        profile: {
+          name: 'Profil Adı',
+          bio: 'Kullanıcı biyografisi',
+        },
+      },
     },
   }
 
@@ -24,6 +36,17 @@ describe('createI18n', () => {
     it('translates with interpolation', () => {
       const i18n = createI18n({ locale: 'tr', fallback: 'en', messages })
       expect(i18n.t('greeting', { name: 'Volta' })).toBe('Merhaba Volta!')
+    })
+
+    it('resolves nested keys with dot notation', () => {
+      const i18n = createI18n({ locale: 'tr', fallback: 'en', messages })
+      expect(i18n.t('user.profile.name')).toBe('Profil Adı')
+      expect(i18n.t('user.profile.bio')).toBe('Kullanıcı biyografisi')
+    })
+
+    it('falls back nested keys to fallback locale', () => {
+      const i18n = createI18n({ locale: 'de', fallback: 'en', messages })
+      expect(i18n.t('user.profile.name')).toBe('Profile Name')
     })
 
     it('falls back to fallback locale', () => {

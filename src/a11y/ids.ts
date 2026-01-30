@@ -11,12 +11,50 @@
  */
 
 /**
+ * ID Generator interface for instance-scoped ID generation
+ */
+export interface IdGenerator {
+  /** Generate a unique ID with optional prefix */
+  generate: (prefix?: string) => string
+  /** Reset counter (for testing) */
+  reset: () => void
+}
+
+/**
+ * Create an instance-scoped ID generator
+ *
+ * Avoids global state issues in SSR and multi-instance scenarios.
+ *
+ * @example
+ * ```typescript
+ * const idGen = createIdGenerator()
+ * idGen.generate('tooltip') // 'tooltip-1'
+ * idGen.generate('modal')   // 'modal-2'
+ * ```
+ */
+export function createIdGenerator(): IdGenerator {
+  let counter = 0
+
+  return {
+    generate(prefix = 'sentio'): string {
+      return `${prefix}-${++counter}`
+    },
+    reset(): void {
+      counter = 0
+    },
+  }
+}
+
+/**
  * Counter for unique ID generation
+ * @deprecated Use createIdGenerator() for instance-scoped IDs
  */
 let idCounter = 0
 
 /**
  * Generate a unique ID
+ *
+ * @deprecated Use createIdGenerator().generate() for multi-instance safety
  *
  * @example
  * ```typescript
@@ -30,6 +68,7 @@ export function generateId(prefix = 'sentio'): string {
 
 /**
  * Reset ID counter (for testing)
+ * @deprecated Use createIdGenerator().reset() for instance-scoped reset
  */
 export function resetIdCounter(): void {
   idCounter = 0

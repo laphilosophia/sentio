@@ -6,8 +6,11 @@
 
 /**
  * Message dictionary for a single locale
+ * Supports both flat strings and nested objects for dot-notation access
  */
-export type LocaleMessages = Record<string, string>
+export interface LocaleMessages {
+  [key: string]: string | LocaleMessages
+}
 
 /**
  * Message dictionaries keyed by locale

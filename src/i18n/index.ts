@@ -8,6 +8,7 @@
  */
 
 import { interpolate } from './interpolate.js'
+import { getByPath } from './keypath.js'
 import { createICUParser, isICUMessage } from './parser.js'
 import { buildFallbackChain } from './resolve.js'
 import type { I18nHooks, LocaleMessages, MessageLoader, Messages } from './types.js'
@@ -76,6 +77,7 @@ export interface I18n {
 
 /**
  * Resolve a message from loaded messages using fallback chain
+ * Supports both flat keys ('greeting') and nested keys ('user.profile.name')
  */
 function resolveMessageFromLoaded(
   key: string,
@@ -87,8 +89,22 @@ function resolveMessageFromLoaded(
 
   for (const loc of chain) {
     const dict = messages[loc]
-    if (dict && Object.prototype.hasOwnProperty.call(dict, key)) {
-      return dict[key]
+    if (!dict) continue
+
+    // First try flat lookup (exact key match)
+    if (Object.prototype.hasOwnProperty.call(dict, key)) {
+      const value = dict[key]
+      if (typeof value === 'string') {
+        return value
+      }
+    }
+
+    // Then try nested key resolution (dot notation)
+    if (key.includes('.')) {
+      const value = getByPath(dict as Record<string, unknown>, key)
+      if (value !== undefined) {
+        return value
+      }
     }
   }
 

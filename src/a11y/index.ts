@@ -329,10 +329,12 @@ export {
 export {
   createFormFieldAssociation,
   createIdAssociation,
+  createIdGenerator,
   generateId,
   removeAriaReference,
   resetIdCounter,
   type AriaRelationship,
   type FormFieldAssociation,
   type IdAssociation,
+  type IdGenerator,
 } from './ids.js'
