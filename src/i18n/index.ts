@@ -8,7 +8,8 @@
  */
 
 import { interpolate } from './interpolate.js'
-import { resolveMessage, type Messages } from './resolve.js'
+import { buildFallbackChain } from './resolve.js'
+import type { MessageLoader, Messages } from './types.js'
 
 /**
  * Configuration for i18n instance
@@ -18,8 +19,10 @@ export interface I18nConfig {
   locale: string
   /** Fallback locale when key not found */
   fallback: string
-  /** Message dictionaries keyed by locale */
-  messages: Messages
+  /** Message dictionaries keyed by locale (for static usage) */
+  messages?: Messages
+  /** Message loader for async/dynamic loading */
+  loader?: MessageLoader
   /** Called when a translation key is missing */
   onMissingKey?: (key: string, locale: string) => void
 }
@@ -36,10 +39,37 @@ export interface I18n {
   formatNumber: (value: number, style?: 'decimal' | 'currency' | 'percent') => string
   /** Get current locale */
   getLocale: () => string
-  /** Set current locale */
+  /** Set current locale (does not load messages) */
   setLocale: (locale: string) => void
   /** Get fallback locale */
   getFallback: () => string
+  /** Load messages for a locale (async) */
+  loadLocale: (locale: string) => Promise<void>
+  /** Check if a locale is loaded */
+  isLoaded: (locale: string) => boolean
+  /** Get all loaded messages */
+  getMessages: () => Messages
+}
+
+/**
+ * Resolve a message from loaded messages using fallback chain
+ */
+function resolveMessageFromLoaded(
+  key: string,
+  locale: string,
+  fallback: string,
+  messages: Messages
+): string | undefined {
+  const chain = buildFallbackChain(locale, fallback)
+
+  for (const loc of chain) {
+    const dict = messages[loc]
+    if (dict && Object.prototype.hasOwnProperty.call(dict, key)) {
+      return dict[key]
+    }
+  }
+
+  return undefined
 }
 
 /**
@@ -47,6 +77,7 @@ export interface I18n {
  *
  * @example
  * ```typescript
+ * // Static usage (in-memory)
  * const i18n = createI18n({
  *   locale: 'tr',
  *   fallback: 'en',
@@ -56,17 +87,27 @@ export interface I18n {
  *   },
  * })
  *
- * i18n.t('greeting', { name: 'Volta' }) // "Merhaba Volta!"
+ * // Dynamic usage (with loader)
+ * const i18n = createI18n({
+ *   locale: 'tr',
+ *   fallback: 'en',
+ *   loader: createApiLoader({ baseUrl: '/api/i18n' }),
+ * })
+ * await i18n.loadLocale('tr')
+ * i18n.t('greeting', { name: 'Volta' })
  * ```
  */
 export function createI18n(config: I18nConfig): I18n {
   let currentLocale = config.locale
   const fallbackLocale = config.fallback
-  const messages = config.messages
+  const loader = config.loader
   const onMissingKey = config.onMissingKey
 
+  // Internal mutable messages store
+  const loadedMessages: Messages = config.messages ? { ...config.messages } : {}
+
   function t(key: string, params?: Record<string, unknown>): string {
-    const message = resolveMessage(key, currentLocale, fallbackLocale, messages)
+    const message = resolveMessageFromLoaded(key, currentLocale, fallbackLocale, loadedMessages)
 
     if (message === undefined) {
       onMissingKey?.(key, currentLocale)
@@ -99,7 +140,6 @@ export function createI18n(config: I18nConfig): I18n {
     const options: Intl.NumberFormatOptions = { style }
 
     if (style === 'currency') {
-      // Derive currency from locale (simplified)
       const currencyMap: Record<string, string> = {
         tr: 'TRY',
         en: 'USD',
@@ -126,6 +166,28 @@ export function createI18n(config: I18nConfig): I18n {
     return fallbackLocale
   }
 
+  async function loadLocale(locale: string): Promise<void> {
+    // If already loaded, skip
+    if (loadedMessages[locale]) {
+      return
+    }
+
+    if (!loader) {
+      throw new Error(`No loader configured and locale "${locale}" not in static messages`)
+    }
+
+    const messages = await loader.load(locale)
+    loadedMessages[locale] = messages
+  }
+
+  function isLoaded(locale: string): boolean {
+    return Object.prototype.hasOwnProperty.call(loadedMessages, locale)
+  }
+
+  function getMessages(): Messages {
+    return { ...loadedMessages }
+  }
+
   return {
     t,
     formatDate,
@@ -133,6 +195,9 @@ export function createI18n(config: I18nConfig): I18n {
     getLocale,
     setLocale,
     getFallback,
+    loadLocale,
+    isLoaded,
+    getMessages,
   }
 }
 
@@ -140,3 +205,13 @@ export function createI18n(config: I18nConfig): I18n {
 export { interpolate } from './interpolate.js'
 export { buildFallbackChain, resolveMessage } from './resolve.js'
 export type { Messages } from './resolve.js'
+export type {
+  ApiLoaderConfig,
+  CachedLoaderConfig,
+  CacheStorage,
+  LocaleMessages,
+  MessageLoader,
+} from './types.js'
+
+// Re-export loaders
+export { createApiLoader, createCachedLoader, createInMemoryLoader } from './loaders/index.js'
