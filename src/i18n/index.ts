@@ -10,7 +10,7 @@
 import { interpolate } from './interpolate.js'
 import { createICUParser, isICUMessage } from './parser.js'
 import { buildFallbackChain } from './resolve.js'
-import type { MessageLoader, Messages } from './types.js'
+import type { I18nHooks, MessageLoader, Messages } from './types.js'
 
 /**
  * Configuration for i18n instance
@@ -26,6 +26,8 @@ export interface I18nConfig {
   loader?: MessageLoader
   /** Called when a translation key is missing */
   onMissingKey?: (key: string, locale: string) => void
+  /** Telemetry hooks for observability */
+  hooks?: I18nHooks
 }
 
 /**
@@ -105,6 +107,7 @@ export function createI18n(config: I18nConfig): I18n {
   const fallbackLocale = config.fallback
   const loader = config.loader
   const onMissingKey = config.onMissingKey
+  const hooks = config.hooks ?? {}
 
   // Instance-scoped ICU parser (no global state)
   const icuParser = createICUParser()
@@ -117,13 +120,19 @@ export function createI18n(config: I18nConfig): I18n {
 
     if (message === undefined) {
       onMissingKey?.(key, currentLocale)
+      hooks.onMiss?.(key, currentLocale)
       // Return key as fallback for missing translations
       return key
     }
 
     // Check if message contains ICU syntax
     if (params && isICUMessage(message)) {
-      return icuParser.format(message, currentLocale, params)
+      try {
+        return icuParser.format(message, currentLocale, params)
+      } catch (error) {
+        hooks.onError?.(error as Error, { key, locale: currentLocale, message })
+        return message
+      }
     }
 
     if (params) {
@@ -187,8 +196,12 @@ export function createI18n(config: I18nConfig): I18n {
       throw new Error(`No loader configured and locale "${locale}" not in static messages`)
     }
 
+    const start = performance.now()
     const messages = await loader.load(locale)
     loadedMessages[locale] = messages
+    const duration = performance.now() - start
+
+    hooks.onLoad?.(locale, duration)
   }
 
   function isLoaded(locale: string): boolean {

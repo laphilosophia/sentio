@@ -10,6 +10,7 @@
  */
 
 import IntlMessageFormat from 'intl-messageformat'
+import { createLRUCache } from './lru-cache.js'
 
 /**
  * Pattern to detect ICU syntax
@@ -48,9 +49,9 @@ export interface ICUParser {
  * parser.clearCache() // Clear when locale changes or on cleanup
  * ```
  */
-export function createICUParser(): ICUParser {
-  // Instance-scoped cache - no global state
-  const cache = new Map<string, IntlMessageFormat>()
+export function createICUParser(maxCacheSize = 1000): ICUParser {
+  // Instance-scoped LRU cache - prevents unbounded memory growth
+  const cache = createLRUCache<string, IntlMessageFormat>(maxCacheSize)
 
   function getFormatter(message: string, locale: string): IntlMessageFormat {
     const cacheKey = `${locale}:${message}`

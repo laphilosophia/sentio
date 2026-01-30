@@ -78,3 +78,31 @@ export interface CachedLoaderConfig {
   /** Custom storage implementation */
   storage?: CacheStorage
 }
+
+/**
+ * Telemetry hooks for i18n observability
+ *
+ * All hooks are optional and called asynchronously (fire-and-forget).
+ */
+export interface I18nHooks {
+  /**
+   * Called after a locale is loaded
+   * @param locale - Loaded locale code
+   * @param duration - Load duration in milliseconds
+   */
+  onLoad?: (locale: string, duration: number) => void
+
+  /**
+   * Called when a translation key is missing
+   * @param key - Missing key
+   * @param locale - Current locale
+   */
+  onMiss?: (key: string, locale: string) => void
+
+  /**
+   * Called when an error occurs (e.g., ICU parse error)
+   * @param error - The error object
+   * @param context - Additional context (key, locale, message)
+   */
+  onError?: (error: Error, context: { key?: string; locale: string; message?: string }) => void
+}

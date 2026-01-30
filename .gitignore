@@ -7,3 +7,6 @@ coverage/
 .env.local
 *.tgz
 .docs
+i18n.large.json
+icu-i18n.large.json
+icu-test.json
